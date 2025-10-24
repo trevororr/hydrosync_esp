@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../../../hydrosync"
+		},
+		{
+			"name": "hydrosync_esp_l",
+			"path": "."
+		}
+	],
+	"settings": {}
+}
