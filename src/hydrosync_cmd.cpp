@@ -2,6 +2,7 @@
 #include <ArduinoJson.h>
 #include "hydrosync_cmd.h"
 #include "hs_sensors.h"
+#include "hs_setters.h"
 
 JsonDocument specs;
 
@@ -10,8 +11,6 @@ bool running = false;
 // Sensor library prototypes
 JsonDocument get_current();
 // Prototypes
-void pump_set(int level);
-void flow_set(int level);
 void e_stop();
 void handle_line(const String& line);
 
@@ -31,6 +30,27 @@ void initSpecs() {
   Serial.setTimeout(10); // keep readStringUntil reasonably snappy if you still use it
 }
 
+// Update the JSON doc from sensors/state
+void update_specs() {
+  JsonDocument ina_vals = get_current();
+
+  specs["flow"]    = get_flow();
+  specs["gen_current"] = ina_vals["current_mA"];
+  specs["gen_voltage"] = ina_vals["bus_V"];
+  specs["gen_power"] = ina_vals["power_mW"];
+  specs["UR"]      = get_water_level();
+  //specs["LR"]      = lr_get();
+  //specs["charge"]  = charge_get();
+}
+
+void e_stop() {
+  set_flow(0);
+  set_pump(0);
+}
+
+/*
+Process incoming serial data
+*/
 // Non-blocking serial poll; call every loop()
 void poll_serial() {
   while (Serial.available() > 0) {
@@ -75,10 +95,10 @@ void handle_line(const String& line) {
     e_stop();
   } else if (strcmp(action, "PUMP_SET") == 0) {
     int level = (value != INT_MIN) ? value : atoi(state);
-    pump_set(level);
+    set_pump(level);
   } else if (strcmp(action, "FLOW_SET") == 0) {
     int level = (value != INT_MIN) ? value : atoi(state);
-    flow_set(level); // <-- fixed
+    set_flow(level);
   } else if (strcmp(action, "status") == 0) {
     // send immediate snapshot
     static uint32_t seq = 0;
@@ -97,39 +117,6 @@ void send_ser (uint32_t seq) {
   serializeJson(specs, Serial);
   Serial.print('\n'); // line delimiter
 }
-
-// IMPLEMENTATIONS — remove Serial.printlns to keep the wire clean
-void pump_set(int level) {
-  // TODO: apply pump control
-  (void)level;
-}
-void flow_set(int level) {
-  // TODO: apply flow control
-  (void)level;
-}
-
-float voltage_get() { return 12.6f; }
-float ur_get()      { return 75.0f; }
-float lr_get()      { return 33.0f; }
-float power_get()   { return fabsf(ur_get() - lr_get()); }
-float charge_get()  {
-  float charge = analogRead(4);
-  charge = (charge / 4095.0f) * 100.0f; // assuming 12-bit ADC, scale to 0-100%
-  return charge;
-}
-
-void e_stop() {
-  flow_set(0);
-  pump_set(0);
-}
-
-// Update the JSON doc from sensors/state
-void update_specs() {
-  specs["flow"]    = get_flow();
-  specs["current"] = get_current();
-  specs["voltage"] = voltage_get();
-  specs["UR"]      = ur_get();     // aligned with Python
-  specs["LR"]      = lr_get();     // aligned with Python
-  specs["power"]   = power_get();
-  specs["charge"]  = charge_get();
-}
+/*
+End of serial command processing
+*/

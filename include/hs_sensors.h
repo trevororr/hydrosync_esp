@@ -7,6 +7,7 @@
 // Function declarations
 void sensor_init();
 JsonDocument get_current();
-float get_flow();
+double get_flow();
+uint8_t get_water_level();
 
 #endif

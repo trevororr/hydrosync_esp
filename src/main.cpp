@@ -22,7 +22,7 @@ void loop() {
 
   // periodic TX independent of RX
   uint32_t now = millis();
-  if (now - lastTx >= 100) {   // 100 ms
+  if (now - lastTx >= 1000) {   // 100 ms
     update_specs();
     send_ser(seq++);
     lastTx = now;
