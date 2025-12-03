@@ -8,6 +8,19 @@ Adafruit_INA219 ina219;
 JsonDocument current_vals;
 
 //I2C using DEFAULT SDA on GPIO 21 and SCL on GPIO 22
+/*I2C Sensors Addresses/Configurations:
+  - INA219 Current Sensor
+    - 0x40 (default)
+    - 0x41 (A0 Bridge)
+    - 0x44 (A1 Bridge)
+    - 0x45 (A0 & A1 Bridge)
+  - Flow Sensor (YF-S201)
+    - Analog Output on GPIO 4 with Interrupts
+  - Seeed Water Level Sensor
+    - ATTINY1 (High) - 0x78
+    - ATTINY2 (Low)  - 0x77
+*/
+
 #define FLOW_SENSOR_PIN 4 // GPIO pin connected to the flow sensor
 void IRAM_ATTR flow_interrupt();
 
@@ -18,7 +31,7 @@ void sensor_init() {
     Serial.println("Failed to find INA219 chip");
     delay(100);
   }
-  ina219.setCalibration_32V_2A(); // Set calibration for 32V, 2A range
+  ina219.setCalibration_16V_400mA(); // Set calibration for 16V, 400mA range
 
   pinMode(FLOW_SENSOR_PIN, INPUT);
   attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), flow_interrupt, RISING);
@@ -32,7 +45,7 @@ JsonDocument get_current() {
   float current_mA = ina219.getCurrent_mA();
   float power_mW = ina219.getPower_mW();
   float load_V = bus_V + (shunt_mV / 1000.0f);
-  
+
   current_vals["current_mA"] = current_mA;
   current_vals["power_mW"] = power_mW;
   current_vals["load_V"] = load_V;
