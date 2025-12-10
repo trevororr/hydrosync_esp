@@ -6,6 +6,7 @@
 
 Adafruit_INA219 ina219;
 JsonDocument current_vals;
+bool ina219_ok = false;
 
 //I2C using DEFAULT SDA on GPIO 21 and SCL on GPIO 22
 /*I2C Sensors Addresses/Configurations:
@@ -22,16 +23,24 @@ JsonDocument current_vals;
 */
 
 #define FLOW_SENSOR_PIN 4 // GPIO pin connected to the flow sensor
-void IRAM_ATTR flow_interrupt();
+void IRAM_ATTR flow_interrupt(); // Interrupt Function Prototype (iram_attr for ISR on ESP32)
+void try_init_ina219(); // INA219 init retry function prototype
 
 void sensor_init() {
   Wire.begin(); // Initialize I2C with DEFAULT SDA on GPIO 21 and SCL on GPIO 22
 
+  const int INA_RETRY_MS = 2000;
+  int begin_ina_try = millis();
+
   while (!ina219.begin()) {
-    Serial.println("Failed to find INA219 chip");
+    int now = millis();
+    // Timeout for INA219 init retries
+    if(now - begin_ina_try > INA_RETRY_MS) {
+      break;
+    }
+    try_init_ina219();
     delay(100);
   }
-  ina219.setCalibration_16V_400mA(); // Set calibration for 16V, 400mA range
 
   pinMode(FLOW_SENSOR_PIN, INPUT);
   attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), flow_interrupt, RISING);
@@ -40,6 +49,15 @@ void sensor_init() {
 }
 
 JsonDocument get_current() {
+  if (!ina219_ok) {
+    // INA219 still not available: return safe placeholders
+    current_vals["connected"]   = false;
+    current_vals["current_mA"]  = 0.0f;
+    current_vals["power_mW"]    = 0.0f;
+    current_vals["load_V"]      = 0.0f;
+    return current_vals;
+  }
+
   float shunt_mV = ina219.getShuntVoltage_mV();
   float bus_V = ina219.getBusVoltage_V();
   float current_mA = ina219.getCurrent_mA();
@@ -51,6 +69,21 @@ JsonDocument get_current() {
   current_vals["load_V"] = load_V;
 
   return current_vals;
+}
+
+void try_init_ina219() {
+  if (ina219_ok) return; // already good
+
+  Serial.println("Attempting INA219 init...");
+
+  if (ina219.begin()) {
+    ina219.setCalibration_16V_400mA();
+    ina219_ok = true;
+    Serial.println("INA219 initialized successfully.");
+  } else {
+    ina219_ok = false;
+    Serial.println("INA219 not found (non-fatal). Will retry later.");
+  }
 }
 
 /*
