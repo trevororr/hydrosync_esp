@@ -116,7 +116,7 @@ double get_flow() {
   double seconds = (double)elapsed / 1000.0;
   double flow = liters / seconds;
 
-  return flow;  // Liters per minute
+  return flow;  // Liters per second
 }
 /*
 End of Flow Sensor Functions
